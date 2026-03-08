@@ -4,7 +4,6 @@ Text-based implementation for Checkpoint 1 (Week 8).
 Designed for board sizes up to 10x10. Extensible for UI and Minimax in later checkpoints.
 """
 
-
 from typing import Optional
 
 
