@@ -1,0 +1,121 @@
+name: Discord Push Webhook
+
+on:
+  push:
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send push info to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          event_path = os.environ["GITHUB_EVENT_PATH"]
+          webhook_url = os.environ["DISCORD_WEBHOOK_URL"]
+
+          with open(event_path, "r", encoding="utf-8") as f:
+              payload = json.load(f)
+
+          commits = payload.get("commits", [])
+          head_commit = payload.get("head_commit") or {}
+
+          # Author
+          author = (
+              head_commit.get("author", {}).get("name")
+              or (commits[-1].get("author", {}).get("name") if commits else "Unknown")
+          )
+
+          # Commit message(s)
+          if len(commits) == 1:
+              commit_message = commits[0].get("message", "No commit message")
+          elif len(commits) > 1:
+              commit_message = "\n".join(
+                  f"- {c.get('message', 'No commit message')}" for c in commits
+              )
+          else:
+              commit_message = "No commit message"
+
+          # Gather changed files across all pushed commits
+          files_added = []
+          files_changed = []
+
+          for commit in commits:
+              files_added.extend(commit.get("added", []))
+              files_changed.extend(commit.get("modified", []))
+
+          # Remove duplicates while keeping order
+          def dedupe(items):
+              seen = set()
+              out = []
+              for item in items:
+                  if item not in seen:
+                      seen.add(item)
+                      out.append(item)
+              return out
+
+          files_added = dedupe(files_added)
+          files_changed = dedupe(files_changed)
+
+          added_text = "\n".join(files_added) if files_added else "None"
+          changed_text = "\n".join(files_changed) if files_changed else "None"
+
+          repo = payload.get("repository", {}).get("full_name", "Unknown repo")
+          branch = payload.get("ref", "").replace("refs/heads/", "")
+          compare_url = payload.get("compare", "")
+
+          discord_payload = {
+              "embeds": [
+                  {
+                      "title": f"New Push in {repo}",
+                      "description": f"Branch: `{branch}`",
+                      "fields": [
+                          {
+                              "name": "Author",
+                              "value": author[:1024],
+                              "inline": False
+                          },
+                          {
+                              "name": "Files Added",
+                              "value": added_text[:1024],
+                              "inline": False
+                          },
+                          {
+                              "name": "Files Changed",
+                              "value": changed_text[:1024],
+                              "inline": False
+                          },
+                          {
+                              "name": "Commit Message",
+                              "value": commit_message[:1024],
+                              "inline": False
+                          }
+                      ],
+                      "footer": {
+                          "text": "GitHub Push Notification"
+                      }
+                  }
+              ]
+          }
+
+          if compare_url:
+              discord_payload["embeds"][0]["url"] = compare_url
+
+          data = json.dumps(discord_payload).encode("utf-8")
+
+          req = urllib.request.Request(
+              webhook_url,
+              data=data,
+              headers={"Content-Type": "application/json"}
+          )
+
+          with urllib.request.urlopen(req) as response:
+              print("Discord webhook sent:", response.status)
+          PY
