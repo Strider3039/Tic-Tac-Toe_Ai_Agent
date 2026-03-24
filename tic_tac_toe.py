@@ -95,7 +95,12 @@ def play_game(board_size: int = 3) -> Optional[str]:
     
     while True:
         display_board(board)
-        row, col = get_move(board, current_player)
+        
+        if current_player == "O": # ai player
+            row, col = get_best_move(board)
+        else:
+            row, col = get_move(board, current_player)
+    
         board[row][col] = current_player
         
         if check_winner(board, row, col, current_player):
@@ -110,6 +115,77 @@ def play_game(board_size: int = 3) -> Optional[str]:
         
         current_player = "O" if current_player == "X" else "X"
 
+# ============================ MINIMAX ==================================
+
+def minimax(board: list[list[str]], is_maximizing: bool, last_move: Optional[tuple[int, int]]) -> int:
+    """
+    Minimax evaluation of the board.
+    simulates all possible moves with ai as maximizer and player as minimizer
+    Returns:
+        -1 if X wins (player)
+        +1 if O wins (ai)
+         0 if draw
+    """
+    # check the terminal state (win, lose, draw)
+    if last_move is not None:
+        row, col = last_move
+        last_player = "X" if is_maximizing else "O"
+        
+        if check_winner(board, row, col, last_player):
+            return 1 if last_player == "O" else -1
+
+    if is_board_full(board):
+        return 0
+
+    size = len(board)
+
+    if is_maximizing: # simulated ai turn
+        best_score = float("-inf")
+        player = "O"
+
+        # find best posible move for ai
+        for i in range(size):
+            for j in range(size):
+                if board[i][j] == " ":
+                    board[i][j] = player
+                    score = minimax(board, False, (i, j)) # false bc the next simulated turn will be the player's
+                    board[i][j] = " "  # undo move
+                    best_score = max(best_score, score)
+
+        return best_score
+    else: # simulated player turn
+        best_score = float("inf")
+        player = "X"
+
+        # find best possible move for player
+        for i in range(size):
+            for j in range(size):
+                if board[i][j] == " ":
+                    board[i][j] = player
+                    score = minimax(board, True, (i, j)) # true bc the next simulated turn is the ai's
+                    board[i][j] = " "  # undo move
+                    best_score = min(best_score, score)
+
+        return best_score
+
+def get_best_move(board: list[list[str]]) -> tuple[int, int]:
+    best_score = float("-inf")
+    best_move = None
+    size = len(board)
+
+    # find the minimax value for each possible move, and record the best one
+    for i in range(size):
+        for j in range(size):
+            if board[i][j] == " ":
+                board[i][j] = "O" # try this move
+                score = minimax(board, False, (i, j))
+                board[i][j] = " " # undo move
+                print(score)
+                if score > best_score:
+                    best_score = score
+                    best_move = (i, j)
+
+    return best_move
 
 def main() -> None:
     """Main entry point."""
