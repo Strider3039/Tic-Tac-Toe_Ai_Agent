@@ -6,6 +6,14 @@ Designed for board sizes up to 10x10. Extensible for UI and Minimax in later che
 
 from typing import Optional
 
+#   ____________________
+#   |                  |
+#   |                  |
+#   |                  |
+#   |__________________|
+#
+#   cursor parking lot :)
+
 
 def create_board(size: int) -> list[list[str]]:
     """Create an empty nxn board."""
