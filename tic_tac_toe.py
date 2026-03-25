@@ -14,6 +14,10 @@ from typing import Optional
 #
 #   cursor parking lot :)
 
+# Config flag to enable/disable pruning stats collection - disable for raw performance testing without the overhead of counting stats
+COMPUTE_PRUNING_STATS = True 
+
+
 class pColors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -148,6 +152,7 @@ def minimax(
     last_move: Optional[tuple[int, int]],
     alpha: float = float("-inf"),
     beta: float = float("inf"),
+    stats: Optional[dict[str, int]] = None,
 ) -> int:
     """
     Minimax evaluation of the board.
@@ -161,6 +166,9 @@ def minimax(
         +1 if O wins (ai)
          0 if draw
     """
+    if stats is not None:
+        stats["visited_nodes"] += 1
+
     # check the terminal state (win, lose, draw)
     if last_move is not None:
         row, col = last_move
@@ -183,11 +191,20 @@ def minimax(
             for j in range(size):
                 if board[i][j] == " ":
                     board[i][j] = player
-                    score = minimax(board, False, (i, j), alpha, beta) # false bc the next simulated turn will be the player's
+                    score = minimax(board, False, (i, j), alpha, beta, stats) # false bc the next simulated turn will be the player's
                     board[i][j] = " "  # undo move
                     best_score = max(best_score, score)
                     alpha = max(alpha, best_score)
                     if beta <= alpha: # remaining child nodes of the game tree can't improve the score for ai, so we can stop searching this branch
+                        if stats is not None and COMPUTE_PRUNING_STATS:
+                            skipped_here = 0
+                            for rem_i in range(i, size): # iterate through remaining child nodes to count how many we are skipping due to pruning
+                                start_col = j + 1 if rem_i == i else 0
+                                for rem_j in range(start_col, size):
+                                    if board[rem_i][rem_j] == " ":
+                                        skipped_here += 1
+                            stats["prune_events"] += 1
+                            stats["skipped_nodes"] += skipped_here
                         return best_score
 
         return best_score
@@ -200,11 +217,20 @@ def minimax(
             for j in range(size):
                 if board[i][j] == " ":
                     board[i][j] = player
-                    score = minimax(board, True, (i, j), alpha, beta) # true bc the next simulated turn is the ai's
+                    score = minimax(board, True, (i, j), alpha, beta, stats) # true bc the next simulated turn is the ai's
                     board[i][j] = " "  # undo move
                     best_score = min(best_score, score)
                     beta = min(beta, best_score)
                     if beta <= alpha:
+                        if stats is not None and COMPUTE_PRUNING_STATS:
+                            skipped_here = 0
+                            for rem_i in range(i, size):
+                                start_col = j + 1 if rem_i == i else 0
+                                for rem_j in range(start_col, size):
+                                    if board[rem_i][rem_j] == " ":
+                                        skipped_here += 1
+                            stats["prune_events"] += 1
+                            stats["skipped_nodes"] += skipped_here
                         return best_score
 
         return best_score
@@ -213,6 +239,11 @@ def get_best_move(board: list[list[str]]) -> tuple[int, int]:
     best_score = float("-inf")
     best_move = None
     size = len(board)
+    search_stats = {
+        "visited_nodes": 0,
+        "prune_events": 0,
+        "skipped_nodes": 0,
+    }
 
     scoreTable = [[" " for _ in range(size)] for _ in range(size)]
 
@@ -221,7 +252,7 @@ def get_best_move(board: list[list[str]]) -> tuple[int, int]:
         for j in range(size):
             if board[i][j] == " ":
                 board[i][j] = "O" # try this move
-                score = minimax(board, False, (i, j))
+                score = minimax(board, False, (i, j), stats=search_stats)
                 board[i][j] = " " # undo move
                 scoreTable[i][j] = str(score)
                 if score > best_score:
@@ -230,6 +261,13 @@ def get_best_move(board: list[list[str]]) -> tuple[int, int]:
 
     print(f"{pColors.OKCYAN}\nScore Table:{pColors.ENDC}")
     display_board(scoreTable, pColors.OKCYAN)
+    if COMPUTE_PRUNING_STATS:
+        print(
+            f"{pColors.OKCYAN}Alpha-Beta Stats: "
+            f"visited={search_stats['visited_nodes']}, "
+            f"prunes={search_stats['prune_events']}, "
+            f"skipped={search_stats['skipped_nodes']}\n\n{pColors.ENDC}"
+        )
 
     return best_move
 
