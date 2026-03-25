@@ -7,10 +7,10 @@ Designed for board sizes up to 10x10. Extensible for UI and Minimax in later che
 from typing import Optional
 
 #   ____________________
-#   |                  |
-#   |                  |
-#   |                  |
-#   |__________________|
+#   |                   |
+#   |  🚘  🚘          |
+#   |  🚘🚘   🚘       |
+#   |___________________|
 #
 #   cursor parking lot :)
 
@@ -142,10 +142,20 @@ def play_game(board_size: int = 3) -> Optional[str]:
 
 # ============================ MINIMAX ==================================
 
-def minimax(board: list[list[str]], is_maximizing: bool, last_move: Optional[tuple[int, int]]) -> int:
+def minimax(
+    board: list[list[str]],
+    is_maximizing: bool,
+    last_move: Optional[tuple[int, int]],
+    alpha: float = float("-inf"),
+    beta: float = float("inf"),
+) -> int:
     """
     Minimax evaluation of the board.
     simulates all possible moves with ai as maximizer and player as minimizer
+    
+    - alpha: best score for maximizer (ai) found so far
+    - beta: best score for minimizer (player) found so far
+
     Returns:
         -1 if X wins (player)
         +1 if O wins (ai)
@@ -173,9 +183,12 @@ def minimax(board: list[list[str]], is_maximizing: bool, last_move: Optional[tup
             for j in range(size):
                 if board[i][j] == " ":
                     board[i][j] = player
-                    score = minimax(board, False, (i, j)) # false bc the next simulated turn will be the player's
+                    score = minimax(board, False, (i, j), alpha, beta) # false bc the next simulated turn will be the player's
                     board[i][j] = " "  # undo move
                     best_score = max(best_score, score)
+                    alpha = max(alpha, best_score)
+                    if beta <= alpha: # remaining child nodes of the game tree can't improve the score for ai, so we can stop searching this branch
+                        return best_score
 
         return best_score
     else: # simulated player turn
@@ -187,9 +200,12 @@ def minimax(board: list[list[str]], is_maximizing: bool, last_move: Optional[tup
             for j in range(size):
                 if board[i][j] == " ":
                     board[i][j] = player
-                    score = minimax(board, True, (i, j)) # true bc the next simulated turn is the ai's
+                    score = minimax(board, True, (i, j), alpha, beta) # true bc the next simulated turn is the ai's
                     board[i][j] = " "  # undo move
                     best_score = min(best_score, score)
+                    beta = min(beta, best_score)
+                    if beta <= alpha:
+                        return best_score
 
         return best_score
 
