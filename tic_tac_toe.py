@@ -14,16 +14,30 @@ from typing import Optional
 #
 #   cursor parking lot :)
 
+class pColors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 def create_board(size: int) -> list[list[str]]:
     """Create an empty nxn board."""
     return [[" " for _ in range(size)] for _ in range(size)]
 
 
-def display_board(board: list[list[str]]) -> None:
+def display_board(board: list[list[str]], printColor: Optional[str] = None) -> None:
     """Print the board to the console."""
     size = len(board)
     cell_width = max(2, len(str(size * size)))
+
+    if printColor is not None:
+        print(printColor, end="")
     
     # Print column numbers
     header = "   " + " ".join(str(j + 1).rjust(cell_width) for j in range(size))
@@ -36,6 +50,9 @@ def display_board(board: list[list[str]]) -> None:
             cell = board[i][j] if board[i][j] != " " else "."
             row_str += cell.center(cell_width + 1)
         print(row_str)
+
+    if printColor is not None:
+        print(pColors.ENDC)
 
 
 def get_move(board: list[list[str]], player: str) -> tuple[int, int]:
@@ -181,6 +198,8 @@ def get_best_move(board: list[list[str]]) -> tuple[int, int]:
     best_move = None
     size = len(board)
 
+    scoreTable = [[" " for _ in range(size)] for _ in range(size)]
+
     # find the minimax value for each possible move, and record the best one
     for i in range(size):
         for j in range(size):
@@ -188,10 +207,13 @@ def get_best_move(board: list[list[str]]) -> tuple[int, int]:
                 board[i][j] = "O" # try this move
                 score = minimax(board, False, (i, j))
                 board[i][j] = " " # undo move
-                print(score)
+                scoreTable[i][j] = str(score)
                 if score > best_score:
                     best_score = score
                     best_move = (i, j)
+
+    print(f"{pColors.OKCYAN}\nScore Table:{pColors.ENDC}")
+    display_board(scoreTable, pColors.OKCYAN)
 
     return best_move
 
